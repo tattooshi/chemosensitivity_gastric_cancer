@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+
+# 仮想環境
+venv/
+仮想環境/
+
+# モデル
+*.pt
+*.pth
+model/
+
+# 画像
+*.jpg
+*.png
+*.jpeg
+
+# データ
+*.csv
+*.xlsx
+
+# その他
+.env000_画像から感受性推論AI.py
+.env000_画像から感受性推論AIヒートマップ.py
+.env001_画像から感受性推論AIヒートマップ _square.py
+
