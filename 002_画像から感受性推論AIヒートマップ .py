@@ -1,3 +1,5 @@
+# 胃癌の化学療法感受性を推論するAI
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
