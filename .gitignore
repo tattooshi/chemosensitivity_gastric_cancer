@@ -20,8 +20,5 @@ model/
 *.csv
 *.xlsx
 
-# その他
-.env000_画像から感受性推論AI.py
-.env000_画像から感受性推論AIヒートマップ.py
-.env001_画像から感受性推論AIヒートマップ _square.py
+
 
