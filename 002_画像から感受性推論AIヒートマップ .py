@@ -35,13 +35,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import tkinter as tk
-from tkinter import filedialog, scrolledtext
+from tkinter import filedialog, scrolledtext, ttk
 from PIL import Image, ImageTk
 import timm
 from timm.data import resolve_data_config, create_transform
 
 ENSEMBLE_INFO_PATH = Path(
-    "/home/tatsushi/デスクトップ/感受性AI/model/top5_ensemble_info.pth"
+    "./models/top5_ensemble_info.pth"
 )
 
 FEATURE_MODEL_NAME = "vit_large_patch16_384.augreg_in21k_ft_in1k"
@@ -49,6 +49,11 @@ IMG_SIZE = 616
 VALID_EXT = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+CLASS_DISPLAY_NAMES = {
+    "0_sens": "chemo-sensitive",
+    "2_resis": "chemo-resistance",
+}
 
 
 # =========================================================
@@ -235,6 +240,20 @@ def make_heatmap_and_overlay(orig_img: Image.Image, rel_map: np.ndarray, alpha: 
     return heat_pil, overlay_pil
 
 
+def display_class_name(class_name: str) -> str:
+    return CLASS_DISPLAY_NAMES.get(class_name, class_name)
+
+
+def format_display_text(text: str) -> str:
+    text = text.replace("p(0_sens)", "p(chemo-sensitive)")
+    text = text.replace("p(2_resis)", "p(chemo-resistance)")
+    text = text.replace("prob_0_sens", "prob_chemo_sensitive")
+    text = text.replace("prob_2_resis", "prob_chemo_resistance")
+    for raw_name, display_name in CLASS_DISPLAY_NAMES.items():
+        text = text.replace(raw_name, display_name)
+    return text
+
+
 def show_result_tk(
     image_path: Path,
     prob_0_sens: float,
@@ -245,20 +264,65 @@ def show_result_tk(
     terminal_output: str = ""
 ):
     root = tk.Tk()
-    root.title("Median Feature Image + Heatmap")
+    root.title("Chemosensitivity AI Result")
+    root.configure(bg="#f4f7fb")
+    root.minsize(1120, 760)
+
+    style = ttk.Style(root)
+    style.theme_use("clam")
+    style.configure("App.TFrame", background="#f4f7fb")
+    style.configure("Card.TFrame", background="#ffffff", relief="flat")
+    style.configure("Header.TLabel", background="#f4f7fb", foreground="#111827", font=("Arial", 18, "bold"))
+    style.configure("Subtle.TLabel", background="#f4f7fb", foreground="#64748b", font=("Arial", 10))
+    style.configure("CardTitle.TLabel", background="#ffffff", foreground="#334155", font=("Arial", 10, "bold"))
+    style.configure("Metric.TLabel", background="#ffffff", foreground="#0f172a", font=("Arial", 11))
+    style.configure("ImageTitle.TLabel", background="#ffffff", foreground="#334155", font=("Arial", 11, "bold"))
+    style.configure("Log.TLabelframe", background="#f4f7fb", foreground="#334155")
+    style.configure("Log.TLabelframe.Label", background="#f4f7fb", foreground="#334155", font=("Arial", 10, "bold"))
 
     pred_label, pred_class = prob_to_class(prob_0_sens, cutoff)
-    info = (
-        f"image: {image_path.name}\n"
-        f"pred: {pred_class} (label={pred_label})  "
-        f"p(0_sens)={prob_0_sens:.4f}  cutoff={cutoff:.4f}"
+    pred_display = display_class_name(pred_class)
+    prob_2_resis = 1.0 - prob_0_sens
+    accent_color = "#0f9f6e" if pred_class == "0_sens" else "#dc2626"
+    accent_bg = "#d1fae5" if pred_class == "0_sens" else "#fee2e2"
+
+    app = ttk.Frame(root, style="App.TFrame", padding=(18, 16))
+    app.pack(fill="both", expand=True)
+
+    ttk.Label(app, text="Chemosensitivity AI Result", style="Header.TLabel").pack(anchor="w")
+    ttk.Label(app, text=image_path.name, style="Subtle.TLabel").pack(anchor="w", pady=(2, 14))
+
+    summary = ttk.Frame(app, style="Card.TFrame", padding=16)
+    summary.pack(fill="x", pady=(0, 14))
+
+    pred_badge = tk.Label(
+        summary,
+        text=pred_display,
+        bg=accent_bg,
+        fg=accent_color,
+        font=("Arial", 18, "bold"),
+        padx=18,
+        pady=10,
+        relief="flat"
     )
-    tk.Label(root, text=info, justify="left", anchor="w", font=("Arial", 11)).pack(fill="x", padx=8, pady=8)
+    pred_badge.grid(row=0, column=0, rowspan=2, sticky="nsw", padx=(0, 18))
 
-    frame = tk.Frame(root)
-    frame.pack(fill="both", expand=True, padx=8, pady=8)
+    metrics = [
+        ("Label", str(pred_label)),
+        ("p(chemo-sensitive)", f"{prob_0_sens:.4f}"),
+        ("p(chemo-resistance)", f"{prob_2_resis:.4f}"),
+        ("Cutoff", f"{cutoff:.4f}"),
+        ("Margin", f"{prob_0_sens - cutoff:+.4f}"),
+    ]
+    for idx, (label, value) in enumerate(metrics):
+        col = idx + 1
+        ttk.Label(summary, text=label, style="CardTitle.TLabel").grid(row=0, column=col, sticky="w", padx=8)
+        ttk.Label(summary, text=value, style="Metric.TLabel").grid(row=1, column=col, sticky="w", padx=8, pady=(4, 0))
 
-    def fit_to_max_height(img: Image.Image, max_h: int = 480):
+    frame = ttk.Frame(app, style="App.TFrame")
+    frame.pack(fill="both", expand=True, pady=(0, 14))
+
+    def fit_to_max_height(img: Image.Image, max_h: int = 320):
         w, h = img.size
         if h <= max_h:
             return img
@@ -275,32 +339,35 @@ def show_result_tk(
 
     root._img_refs = [tk_orig, tk_heat, tk_over]
 
-    col1 = tk.Frame(frame)
-    col1.pack(side="left", padx=6)
-    tk.Label(col1, text="Original").pack()
-    tk.Label(col1, image=tk_orig).pack()
+    for col, (title, image_ref) in enumerate([
+        ("Original", tk_orig),
+        ("Heatmap", tk_heat),
+        ("Overlay", tk_over),
+    ]):
+        panel = ttk.Frame(frame, style="Card.TFrame", padding=10)
+        panel.grid(row=0, column=col, sticky="nsew", padx=6)
+        frame.columnconfigure(col, weight=1)
+        ttk.Label(panel, text=title, style="ImageTitle.TLabel").pack(anchor="w", pady=(0, 8))
+        tk.Label(panel, image=image_ref, bg="#ffffff", bd=0).pack()
 
-    col2 = tk.Frame(frame)
-    col2.pack(side="left", padx=6)
-    tk.Label(col2, text="Heatmap").pack()
-    tk.Label(col2, image=tk_heat).pack()
-
-    col3 = tk.Frame(frame)
-    col3.pack(side="left", padx=6)
-    tk.Label(col3, text="Overlay").pack()
-    tk.Label(col3, image=tk_over).pack()
-
-    log_frame = tk.LabelFrame(root, text="Terminal Output")
-    log_frame.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+    log_frame = ttk.LabelFrame(app, text="Terminal Output", style="Log.TLabelframe", padding=8)
+    log_frame.pack(fill="both", expand=True)
 
     log_text = scrolledtext.ScrolledText(
         log_frame,
         wrap="none",
         height=14,
-        font=("Courier New", 10)
+        font=("Courier New", 10),
+        bg="#0f172a",
+        fg="#dbeafe",
+        insertbackground="#dbeafe",
+        selectbackground="#2563eb",
+        selectforeground="#ffffff",
+        relief="flat",
+        borderwidth=0
     )
-    log_text.pack(fill="both", expand=True, padx=6, pady=6)
-    log_text.insert("1.0", terminal_output)
+    log_text.pack(fill="both", expand=True)
+    log_text.insert("1.0", format_display_text(terminal_output))
     log_text.configure(state="disabled")
 
     root.mainloop()

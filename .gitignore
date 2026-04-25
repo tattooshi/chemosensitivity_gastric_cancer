@@ -5,6 +5,7 @@ __pycache__/
 # 仮想環境
 venv/
 仮想環境/
+.venv/
 
 # モデル
 *.pt
@@ -22,3 +23,5 @@ model/
 
 
 
+.codex/
+*copy.py
