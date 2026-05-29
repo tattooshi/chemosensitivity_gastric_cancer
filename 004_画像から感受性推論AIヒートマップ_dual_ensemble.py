@@ -63,7 +63,7 @@ class BackendSpec:
 VIT_SPEC = BackendSpec(
     name="ViT-CLS",
     ensemble_info_path=Path(
-        "/home/tatsushi/デスクトップ/感受性AI/model/top5_ensemble_info.pth"
+        "/home/tatsushi/デスクトップ/val-result/ViT_616_val_val-100/vit_large_patch16_616.augreg_in21k_ft_in1k/Vit_fixed_val_classes_models_0sens_positive/top5_ensemble_info.pth"
     ),
     feature_model_name="vit_large_patch16_384.augreg_in21k_ft_in1k",
     img_size=616,

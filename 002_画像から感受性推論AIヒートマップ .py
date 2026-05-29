@@ -41,7 +41,7 @@ import timm
 from timm.data import resolve_data_config, create_transform
 
 ENSEMBLE_INFO_PATH = Path(
-    "./models/top5_ensemble_info.pth"
+    "/home/tatsushi/デスクトップ/val-result/ViT_616_val_val-100/vit_large_patch16_616.augreg_in21k_ft_in1k/Vit_fixed_val_classes_models_0sens_positive/top5_ensemble_info.pth"
 )
 
 FEATURE_MODEL_NAME = "vit_large_patch16_384.augreg_in21k_ft_in1k"
