@@ -13,8 +13,9 @@
 既存の 002 / 003 の .py は変更しない。
 
 最終判定:
-- 各モデルの p(0_sens) と、そのモデル固有の cutoff からの margin を計算する
-- margin を重み付き平均し、0以上なら 0_sens、0未満なら 2_resis
+- 各モデルの p(0_sens) と cutoff を logit に変換し、logit margin を計算する
+- logit margin を重み付き平均し、0以上なら 0_sens、0未満なら 2_resis
+- 片方の p(0_sens) がほぼ0%の場合は、もう片方が十分高信頼でない限り 2_resis 側に倒す
 - 表示用の combined p(0_sens) は2モデルの確率の重み付き平均
 """
 
@@ -38,6 +39,15 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # 2モデルを同じ重みで合成する。検証データで最適化する場合はここを調整する。
 VIT_WEIGHT = 0.5
 EVA02_WEIGHT = 0.5
+
+# 各モデルの cutoff が大きく異なる場合、単純な p-cutoff では「ほぼ0%」の強い陰性証拠が
+# 弱く扱われることがあるため、判定用には cutoff を基準にした log-odds margin を使う。
+PROB_EPS = 1e-6
+
+# 片方がほぼ0_sensなしと判断した場合の安全弁。
+# もう片方が十分高信頼で0_sensを示す場合だけ veto を解除する。
+LOW_CONFIDENCE_SENS_VETO_PROB = 0.05
+VETO_OVERRIDE_SENS_PROB = 0.85
 
 
 @dataclass(frozen=True)
@@ -166,6 +176,11 @@ def load_backend(spec: BackendSpec, device):
     }
 
 
+def logit(p: float) -> float:
+    p = float(np.clip(p, PROB_EPS, 1.0 - PROB_EPS))
+    return float(np.log(p / (1.0 - p)))
+
+
 @torch.no_grad()
 def extract_feature(model, x: torch.Tensor, pooling: str) -> torch.Tensor:
     feats = model.forward_features(x) if hasattr(model, "forward_features") else model(x)
@@ -209,7 +224,7 @@ def predict_with_backend(backend, cropped_img: Image.Image):
         prob_list.append(proba.item())
 
     prob_0_sens = float(np.mean(prob_list))
-    margin = prob_0_sens - float(backend["cutoff"])
+    margin = logit(prob_0_sens) - logit(float(backend["cutoff"]))
     return prob_0_sens, margin, feat_1d.detach().cpu().numpy()
 
 
@@ -224,6 +239,10 @@ def combine_predictions(vit_prob, vit_margin, eva_prob, eva_margin):
     combined_margin = (
         VIT_SPEC.weight * vit_margin + EVA02_SPEC.weight * eva_margin
     ) / total_weight
+    low_sens_veto = min(vit_prob, eva_prob) <= LOW_CONFIDENCE_SENS_VETO_PROB
+    high_sens_override = max(vit_prob, eva_prob) >= VETO_OVERRIDE_SENS_PROB
+    if low_sens_veto and not high_sens_override:
+        combined_margin = min(combined_margin, -PROB_EPS)
     return float(combined_prob), float(combined_margin)
 
 
@@ -452,7 +471,7 @@ def show_result_tk(
         header,
         text=(
             f"{image_path.name}    label={pred_label}    "
-            f"p(0_sens)={combined_prob:.4f}    margin={combined_margin:+.4f}"
+            f"p(0_sens)={combined_prob:.4f}    logit_margin={combined_margin:+.4f}"
         ),
         bg=pred_bg,
         fg="white",
@@ -467,21 +486,21 @@ def show_result_tk(
         "ViT-CLS",
         f"p={vit_prob:.4f}",
         vit_prob,
-        f"margin={vit_margin:+.4f}  weight={VIT_SPEC.weight:.2f}",
+        f"logit_margin={vit_margin:+.4f}  weight={VIT_SPEC.weight:.2f}",
     )
     add_score_card(
         score_frame,
         "EVA02-AVG",
         f"p={eva_prob:.4f}",
         eva_prob,
-        f"margin={eva_margin:+.4f}  weight={EVA02_SPEC.weight:.2f}",
+        f"logit_margin={eva_margin:+.4f}  weight={EVA02_SPEC.weight:.2f}",
     )
     add_score_card(
         score_frame,
         "Combined",
         f"p={combined_prob:.4f}",
         combined_prob,
-        f"margin={combined_margin:+.4f}",
+        f"logit_margin={combined_margin:+.4f}",
     )
 
     image_area = tk.Frame(root, bg="#020617")
@@ -590,7 +609,7 @@ def main():
             f"{image_path.name} | "
             f"pred={pred_class} | "
             f"ens_p={combined_prob:.4f} | "
-            f"ens_margin={combined_margin:+.4f} | "
+            f"ens_logit_margin={combined_margin:+.4f} | "
             f"vit_p={vit_prob:.4f} ({vit_margin:+.4f}) | "
             f"eva_p={eva_prob:.4f} ({eva_margin:+.4f}) | "
             f"{agreement}"
@@ -617,12 +636,12 @@ def main():
     log_print(f"pred_label  : {mean_label}")
     log_print(f"pred_class  : {mean_class}")
     log_print(f"prob_0_sens : {mean_prob:.4f}")
-    log_print(f"margin      : {mean_margin:+.4f}")
+    log_print(f"logit_margin: {mean_margin:+.4f}")
     log_print("\n[MEDIAN ensemble]")
     log_print(f"pred_label  : {median_label}")
     log_print(f"pred_class  : {median_class}")
     log_print(f"prob_0_sens : {median_prob:.4f}")
-    log_print(f"margin      : {median_margin:+.4f}")
+    log_print(f"logit_margin: {median_margin:+.4f}")
 
     med_idx = int(np.argmin(np.abs(combined_margins - median_margin)))
     selected = rows[med_idx]
@@ -631,7 +650,7 @@ def main():
     log_print("\n===== median-margin image =====")
     log_print(f"selected_image : {selected_path}")
     log_print(f"ensemble p(0_sens): {selected['combined_prob']:.4f}")
-    log_print(f"ensemble margin   : {selected['combined_margin']:+.4f}")
+    log_print(f"ensemble logit_margin: {selected['combined_margin']:+.4f}")
 
     orig_img = Image.open(selected_path).convert("RGB")
     cropped_img = center_crop_max_square(orig_img)
