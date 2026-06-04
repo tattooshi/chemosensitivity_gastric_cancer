@@ -2,9 +2,7 @@ import torch
 from pathlib import Path
 
 pth_path = Path(
-    "/home/tatsushi/デスクトップ/val-result_weight/ViT616-100-weight1/"
-    "vit_large_patch16_616.augreg_in21k_ft_in1k/"
-    "Vit_fixed_val_classes_models_0sens_positive/top5_ensemble_info.pth"
+    "./model/top5_ensemble_info.pth"
 )
 
 # 自分で作成した信頼できるpthなので weights_only=False で読む
