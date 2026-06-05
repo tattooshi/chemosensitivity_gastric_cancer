@@ -6,7 +6,7 @@
 
 - EVA02-Large / 448px / AVG patch token特徴 / top5 ensemble
 - 入力画像は中央最大正方形にcropしてから推論
-- 最終判定は画像ごとの EVA02 ensemble p(0_sens) の median と保存済み cutoff で行う
+- 判定は保存済み cutoff を基準にした logit margin で行う
 - 006 本体は変更しない
 """
 
@@ -20,7 +20,10 @@ from tkinter import scrolledtext
 from PIL import Image
 
 
-BASE_PATH = Path(__file__).with_name("006_画像から感受性推論AIヒートマップ_dual_ensemble_aug30.py")
+BASE_PATH = Path(__file__).with_name(
+    "006_画像から感受性推論AIヒートマップ_dual_ensemble_model.py"
+)
+ENSEMBLE_INFO_PATH = Path(__file__).with_name("EVA02_model") / "top5_ensemble_info.pth"
 
 
 def load_base_module():
@@ -33,12 +36,11 @@ def load_base_module():
 
 
 base = load_base_module()
-ENSEMBLE_INFO_PATH = Path(__file__).with_name("val_models") / "top5_ensemble_info.pth"
 BACKEND_SPEC = replace(base.EVA02_SPEC, ensemble_info_path=ENSEMBLE_INFO_PATH)
 
 
-def prob_to_class(prob_0_sens: float, cutoff: float):
-    pred_label = int(prob_0_sens >= cutoff)
+def margin_to_class(margin: float):
+    pred_label = int(margin >= 0.0)
     pred_class = "0_sens" if pred_label == 1 else "2_resis"
     return pred_label, pred_class
 
@@ -52,6 +54,8 @@ def show_result_tk(
     prob_0_sens: float,
     margin: float,
     cutoff: float,
+    representative_prob: float,
+    representative_margin: float,
     orig_img: Image.Image,
     heat_img: Image.Image,
     overlay_img: Image.Image,
@@ -70,7 +74,7 @@ def show_result_tk(
     except tk.TclError:
         pass
 
-    pred_label, pred_class = prob_to_class(prob_0_sens, cutoff)
+    pred_label, pred_class = margin_to_class(margin)
     pred_bg = prediction_color(pred_class)
 
     header = tk.Frame(root, bg=pred_bg)
@@ -104,6 +108,13 @@ def show_result_tk(
         f"p={prob_0_sens:.4f}",
         prob_0_sens,
         f"cutoff={cutoff:.4f}  logit_margin={margin:+.4f}",
+    )
+    base.add_score_card(
+        score_frame,
+        "Representative Image",
+        f"p={representative_prob:.4f}",
+        representative_prob,
+        f"logit_margin={representative_margin:+.4f}",
     )
 
     image_area = tk.Frame(root, bg="#020617")
@@ -147,7 +158,7 @@ def main():
     log_print, terminal_logs = base.make_dual_printer()
     target_folder = base.select_target_folder()
 
-    log_print("===== load models =====")
+    log_print("===== load EVA02-AVG models =====")
     backend = base.load_backend(BACKEND_SPEC, base.DEVICE)
     input_dim = backend["models"][0].net[0].in_features
     log_print(f"[{BACKEND_SPEC.name}]")
@@ -166,7 +177,7 @@ def main():
     log_print(f"n_images : {len(image_files)}")
 
     rows = []
-    log_print("\n===== per-image EVA02 ensemble inference =====")
+    log_print("\n===== per-image EVA02-AVG inference =====")
     for i, image_path in enumerate(image_files, start=1):
         try:
             img = Image.open(image_path).convert("RGB")
@@ -176,7 +187,7 @@ def main():
             log_print(f"[{i:03d}/{len(image_files):03d}] {image_path.name} | SKIP | {e}")
             continue
 
-        pred_label, pred_class = prob_to_class(prob_0_sens, backend["cutoff"])
+        pred_label, pred_class = margin_to_class(margin)
         rows.append(
             {
                 "path": image_path,
@@ -191,6 +202,7 @@ def main():
             f"{image_path.name} | "
             f"pred={pred_class} | "
             f"p(0_sens)={prob_0_sens:.4f} | "
+            f"cutoff={backend['cutoff']:.4f} | "
             f"logit_margin={margin:+.4f}"
         )
 
@@ -198,23 +210,37 @@ def main():
         raise RuntimeError("有効な画像を1件も処理できませんでした。")
 
     probs = np.array([r["prob_0_sens"] for r in rows], dtype=np.float32)
+    margins = np.array([r["margin"] for r in rows], dtype=np.float32)
+    mean_prob = float(np.mean(probs))
     median_prob = float(np.median(probs))
-    median_margin = base.logit(median_prob) - base.logit(float(backend["cutoff"]))
-    median_label, median_class = prob_to_class(median_prob, backend["cutoff"])
+    mean_margin = float(np.mean(margins))
+    median_margin = float(np.median(margins))
+    mean_label, mean_class = margin_to_class(mean_margin)
+    median_label, median_class = margin_to_class(median_margin)
 
     log_print("\n===== folder summary =====")
     log_print(f"cutoff = {backend['cutoff']:.4f}")
     log_print(f"n_valid_images = {len(rows)}")
-    log_print("\n[MEDIAN EVA02 ensemble]")
+    log_print("\n[MEAN EVA02-AVG]")
+    log_print(f"pred_label  : {mean_label}")
+    log_print(f"pred_class  : {mean_class}")
+    log_print(f"prob_0_sens : {mean_prob:.4f}")
+    log_print(f"logit_margin: {mean_margin:+.4f}")
+    log_print("\n[MEDIAN EVA02-AVG]")
     log_print(f"pred_label  : {median_label}")
     log_print(f"pred_class  : {median_class}")
     log_print(f"prob_0_sens : {median_prob:.4f}")
     log_print(f"logit_margin: {median_margin:+.4f}")
+    log_print("\n===== FINAL median EVA02-AVG decision =====")
+    log_print(f"final_pred_label  : {median_label}")
+    log_print(f"final_pred_class  : {median_class}")
+    log_print(f"final_prob_0_sens : {median_prob:.4f}")
+    log_print(f"final_logit_margin: {median_margin:+.4f}")
 
-    med_idx = int(np.argmin(np.abs(probs - median_prob)))
+    med_idx = int(np.argmin(np.abs(margins - median_margin)))
     selected = rows[med_idx]
     selected_path = selected["path"]
-    log_print("\n===== representative median image =====")
+    log_print("\n===== median-margin image =====")
     log_print(f"selected_image : {selected_path}")
     log_print(f"p(0_sens): {selected['prob_0_sens']:.4f}")
     log_print(f"logit_margin: {selected['margin']:+.4f}")
@@ -229,6 +255,8 @@ def main():
         prob_0_sens=median_prob,
         margin=median_margin,
         cutoff=backend["cutoff"],
+        representative_prob=selected["prob_0_sens"],
+        representative_margin=selected["margin"],
         orig_img=cropped_img,
         heat_img=heat_img,
         overlay_img=overlay_img,

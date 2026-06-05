@@ -2,7 +2,7 @@ import torch
 from pathlib import Path
 
 pth_path = Path(
-    "./model/top5_ensemble_info.pth"
+    "./EVA02_model/top5_ensemble_info.pth"
 )
 
 # 自分で作成した信頼できるpthなので weights_only=False で読む
