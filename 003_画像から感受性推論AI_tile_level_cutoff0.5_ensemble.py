@@ -42,8 +42,11 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 VIT_WEIGHT = 0.5
 EVA02_WEIGHT = 0.5
 
-# 各モデルの cutoff が大きく異なる場合、単純な p-cutoff では「ほぼ0%」の強い陰性証拠が
-# 弱く扱われることがあるため、判定用には cutoff を基準にした log-odds margin を使う。
+# cutoff は .pth に保存されている値を使わず、全モデルで 0.5 に固定する。
+FIXED_CUTOFF = 0.5
+
+# 判定用には cutoff を基準にした log-odds margin を使う。
+# cutoff=0.5 なので、実質的には p(0_sens) >= 0.5 を 0_sens 側と判定する。
 PROB_EPS = 1e-6
 
 # 片方がほぼ0_sensなしと判断した場合の安全弁。
@@ -65,7 +68,7 @@ class BackendSpec:
 VIT_SPEC = BackendSpec(
     name="ViT-CLS",
     ensemble_info_path=Path(
-        "/home/tatsushi/デスクトップ/cls_avg_result/vit_large_patch16_616.augreg_in21k_ft_in1k-100/vit_large_patch16_616.augreg_in21k_ft_in1k/Vit_fixed_val_classes_models_0sens_positive/top5_ensemble_info.pth"
+        "ViT616_model/top5_ensemble_info.pth"
     ),
     feature_model_name="vit_large_patch16_384.augreg_in21k_ft_in1k",
     img_size=616,
@@ -76,7 +79,7 @@ VIT_SPEC = BackendSpec(
 EVA02_SPEC = BackendSpec(
     name="EVA02-AVG",
     ensemble_info_path=Path(
-        "/home/tatsushi/デスクトップ/cls_avg_result/eva02_large_patch14_448.mim_in22k_ft_in22k-100/eva02_large_patch14_448.mim_in22k_ft_in22k/Vit_fixed_val_classes_models_0sens_positive/top5_ensemble_info.pth"
+        "EVA02_model/top5_ensemble_info.pth"
     ),
     feature_model_name="eva02_large_patch14_448.mim_in22k_ft_in22k",
     img_size=448,
@@ -131,7 +134,9 @@ def center_crop_max_square(img: Image.Image) -> Image.Image:
 def load_ensemble_models(ensemble_info_path: Path, device):
     info = torch_load_safe(ensemble_info_path, map_location="cpu")
     topk_model_paths = info["topk_model_paths"]
-    cutoff = float(info.get("ensemble_best_cutoff", 0.5))
+
+    # .pth 内の ensemble_best_cutoff は使わず、常に 0.5 固定にする。
+    cutoff = FIXED_CUTOFF
 
     models = []
     for model_path in topk_model_paths:

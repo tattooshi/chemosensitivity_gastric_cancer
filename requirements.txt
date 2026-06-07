@@ -1,0 +1,11 @@
+timm==1.0.26
+numpy==2.4.3
+pandas==3.0.3
+scikit-learn==1.9.0
+scipy==1.17.1
+matplotlib==3.10.9
+pillow==12.1.1
+openpyxl==3.1.5
+tqdm==4.67.3
+safetensors==0.7.0
+PyYAML==6.0.3

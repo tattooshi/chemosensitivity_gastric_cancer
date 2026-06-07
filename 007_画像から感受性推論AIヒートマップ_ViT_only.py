@@ -21,7 +21,7 @@ from PIL import Image
 
 
 BASE_PATH = Path(__file__).with_name(
-    "009_画像から感受性推論AIヒートマップ.py"
+    "002_画像から感受性推論AIヒートマップ_tile_level_ensemble.py"
 )
 ENSEMBLE_INFO_PATH = "ViT616_model/top5_ensemble_info.pth"
 
