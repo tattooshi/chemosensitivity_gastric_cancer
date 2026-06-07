@@ -21,9 +21,9 @@ from PIL import Image
 
 
 BASE_PATH = Path(__file__).with_name(
-    "006_画像から感受性推論AIヒートマップ_dual_ensemble_model.py"
+    "009_画像から感受性推論AIヒートマップ.py"
 )
-ENSEMBLE_INFO_PATH = Path(__file__).with_name("EVA02_model") / "top5_ensemble_info.pth"
+ENSEMBLE_INFO_PATH = "EVA02_model/top5_ensemble_info.pth"
 
 
 def load_base_module():

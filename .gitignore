@@ -8,9 +8,10 @@ venv/
 .venv/
 
 # モデル
-*.pt
-*.pth
-model/
+.pt
+.pth
+# model/
+# models/
 
 # 画像
 *.jpg
