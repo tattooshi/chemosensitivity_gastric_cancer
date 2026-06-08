@@ -37,7 +37,6 @@ from timm.data import resolve_data_config, create_transform
 
 VALID_EXT = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-SCRIPT_DIR = Path(__file__).resolve().parent
 
 # 2モデルを同じ重みで合成する。検証データで最適化する場合はここを調整する。
 VIT_WEIGHT = 0.5
@@ -129,36 +128,13 @@ def center_crop_max_square(img: Image.Image) -> Image.Image:
     return img.crop((left, top, left + side, top + side))
 
 
-def resolve_existing_path(path: Path, base_dir: Path | None = None) -> Path:
-    if path.exists():
-        return path
-
-    candidates = []
-    if not path.is_absolute():
-        candidates.append(SCRIPT_DIR / path)
-        if base_dir is not None:
-            candidates.append(base_dir / path)
-
-    if base_dir is not None:
-        candidates.append(base_dir / path.name)
-
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-
-    return path
-
-
 def load_ensemble_models(ensemble_info_path: Path, device):
-    ensemble_info_path = resolve_existing_path(ensemble_info_path)
     info = torch_load_safe(ensemble_info_path, map_location="cpu")
     topk_model_paths = info["topk_model_paths"]
     cutoff = float(info.get("ensemble_best_cutoff", 0.5))
-    model_dir = ensemble_info_path.parent
 
     models = []
     for model_path in topk_model_paths:
-        model_path = resolve_existing_path(Path(model_path), base_dir=model_dir)
         ckpt = torch_load_safe(model_path, map_location="cpu")
         model = MLPClassifier(in_dim=ckpt["input_dim"]).to(device)
         model.load_state_dict(ckpt["model_state_dict"])
