@@ -41,8 +41,10 @@ def show_result_tk(
     final_margin: float,
     vit_median_prob: float,
     vit_median_margin: float,
+    vit_cutoff: float,
     eva_median_prob: float,
     eva_median_margin: float,
+    eva_cutoff: float,
     representative_vit_prob: float,
     representative_vit_margin: float,
     representative_eva_prob: float,
@@ -70,6 +72,7 @@ def show_result_tk(
     final_label, final_class = base.prob_margin_to_class(final_margin)
     vit_label, vit_class = base.prob_margin_to_class(vit_median_margin)
     eva_label, eva_class = base.prob_margin_to_class(eva_median_margin)
+    final_cutoff = float(np.median([vit_cutoff, eva_cutoff]))
     pred_bg = base.prediction_color(final_class)
 
     header = tk.Frame(root, bg=pred_bg)
@@ -100,21 +103,21 @@ def show_result_tk(
     score_frame.pack(fill="x", padx=8, pady=8)
     base.add_score_card(
         score_frame,
-        "ViT-CLS Case Median",
+        f"ViT-CLS Case Median  cutoff: {vit_cutoff:.4f}",
         f"p={vit_median_prob:.4f}",
         vit_median_prob,
         f"class={vit_class}  logit_margin={vit_median_margin:+.4f}",
     )
     base.add_score_card(
         score_frame,
-        "EVA02-AVG Case Median",
+        f"EVA02-AVG Case Median  cutoff: {eva_cutoff:.4f}",
         f"p={eva_median_prob:.4f}",
         eva_median_prob,
         f"class={eva_class}  logit_margin={eva_median_margin:+.4f}",
     )
     base.add_score_card(
         score_frame,
-        "Final Ensemble",
+        f"Final Ensemble  cutoff: {final_cutoff:.4f}",
         f"p={final_prob:.4f}",
         final_prob,
         f"logit_margin={final_margin:+.4f}",
@@ -312,8 +315,10 @@ def main():
         final_margin=final_margin,
         vit_median_prob=vit_median_prob,
         vit_median_margin=vit_median_margin,
+        vit_cutoff=vit_backend["cutoff"],
         eva_median_prob=eva_median_prob,
         eva_median_margin=eva_median_margin,
+        eva_cutoff=eva_backend["cutoff"],
         representative_vit_prob=selected["vit_prob"],
         representative_vit_margin=selected["vit_margin"],
         representative_eva_prob=selected["eva_prob"],

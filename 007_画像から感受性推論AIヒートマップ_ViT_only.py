@@ -104,7 +104,7 @@ def show_result_tk(
     score_frame.pack(fill="x", padx=8, pady=8)
     base.add_score_card(
         score_frame,
-        "Folder Median",
+        f"Folder Median  cutoff: {cutoff:.4f}",
         f"p={prob_0_sens:.4f}",
         prob_0_sens,
         f"cutoff={cutoff:.4f}  logit_margin={margin:+.4f}",

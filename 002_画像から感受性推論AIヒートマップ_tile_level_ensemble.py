@@ -65,7 +65,7 @@ class BackendSpec:
 VIT_SPEC = BackendSpec(
     name="ViT-CLS",
     ensemble_info_path=Path(
-        "ViT616_model/top5_ensemble_info.pth"
+        "./ViT616_model/top5_ensemble_info.pth"
     ),
     feature_model_name="vit_large_patch16_384.augreg_in21k_ft_in1k",
     img_size=616,
@@ -79,7 +79,7 @@ EVA02_SPEC = BackendSpec(
         "EVA02_model/top5_ensemble_info.pth"
     ),
     feature_model_name="eva02_large_patch14_448.mim_in22k_ft_in22k",
-    img_size=448,
+    img_size=616,
     pooling="avg_patch_tokens",
     weight=EVA02_WEIGHT,
 )
@@ -432,6 +432,8 @@ def show_result_tk(
     image_path: Path,
     combined_prob: float,
     combined_margin: float,
+    vit_cutoff: float,
+    eva_cutoff: float,
     representative_prob: float,
     representative_margin: float,
     vit_prob: float,
@@ -459,6 +461,7 @@ def show_result_tk(
         pass
 
     pred_label, pred_class = prob_margin_to_class(combined_margin)
+    combined_cutoff = float(np.median([vit_cutoff, eva_cutoff]))
     pred_bg = prediction_color(pred_class)
 
     header = tk.Frame(root, bg=pred_bg)
@@ -503,7 +506,10 @@ def show_result_tk(
     )
     add_score_card(
         score_frame,
-        "Folder Median",
+        (
+            f"Folder Median  cutoff: median={combined_cutoff:.4f} "
+            f"(ViT={vit_cutoff:.4f}, EVA02={eva_cutoff:.4f})"
+        ),
         f"p={combined_prob:.4f}",
         combined_prob,
         f"logit_margin={combined_margin:+.4f}",
@@ -681,6 +687,8 @@ def main():
         image_path=selected_path,
         combined_prob=median_prob,
         combined_margin=median_margin,
+        vit_cutoff=vit_backend["cutoff"],
+        eva_cutoff=eva_backend["cutoff"],
         representative_prob=selected["combined_prob"],
         representative_margin=selected["combined_margin"],
         vit_prob=selected["vit_prob"],
