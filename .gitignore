@@ -9,9 +9,9 @@ venv/
 
 # モデル
 .pt
-.pth
-# model/
-# models/
+#.pth
+EVA02_model/
+ViT616_models/
 
 # 画像
 *.jpg

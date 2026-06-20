@@ -65,10 +65,10 @@ class BackendSpec:
 VIT_SPEC = BackendSpec(
     name="ViT-CLS",
     ensemble_info_path=Path(
-        "./ViT616_model/top5_ensemble_info.pth"
+        "./ViT_560/top5_ensemble_info.pth"
     ),
     feature_model_name="vit_large_patch16_384.augreg_in21k_ft_in1k",
-    img_size=616,
+    img_size=560,
     pooling="cls",
     weight=VIT_WEIGHT,
 )
@@ -76,10 +76,10 @@ VIT_SPEC = BackendSpec(
 EVA02_SPEC = BackendSpec(
     name="EVA02-AVG",
     ensemble_info_path=Path(
-        "EVA02_model/top5_ensemble_info.pth"
+        "EVA02_560/top5_ensemble_info.pth"
     ),
     feature_model_name="eva02_large_patch14_448.mim_in22k_ft_in22k",
-    img_size=616,
+    img_size=560,  
     pooling="avg_patch_tokens",
     weight=EVA02_WEIGHT,
 )
