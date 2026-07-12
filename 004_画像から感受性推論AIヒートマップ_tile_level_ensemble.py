@@ -65,7 +65,7 @@ class BackendSpec:
 VIT_SPEC = BackendSpec(
     name="ViT-CLS",
     ensemble_info_path=Path(
-        "ViT_560/top5_ensemble_info.pth"
+        "/home/tatsushi/デスクトップ/cls_avg_result/vit_large_patch16_560.augreg_in21k_ft_in1k8040-100seed-0.8weight-560px-some_sens/vit_large_patch16_560.augreg_in21k_ft_in1k/Vit_fixed_val_classes_models_0sens_positive/top5_ensemble_info.pth"
     ),
     feature_model_name="vit_large_patch16_384.augreg_in21k_ft_in1k",
     img_size=560,
@@ -76,7 +76,7 @@ VIT_SPEC = BackendSpec(
 EVA02_SPEC = BackendSpec(
     name="EVA02-AVG",
     ensemble_info_path=Path(
-        "EVA02_560/top5_ensemble_info.pth"
+        "/home/tatsushi/デスクトップ/cls_avg_result/eva02_large_patch14_560.mim_in22k_ft_in22k8040-100seed-0.8weight-560px-some_sens/eva02_large_patch14_560.mim_in22k_ft_in22k/Vit_fixed_val_classes_models_0sens_positive/top5_ensemble_info.pth"
     ),
     feature_model_name="eva02_large_patch14_448.mim_in22k_ft_in22k",
     img_size=560,  
